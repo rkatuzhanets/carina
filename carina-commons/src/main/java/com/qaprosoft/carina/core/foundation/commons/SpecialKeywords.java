@@ -15,8 +15,6 @@
  *******************************************************************************/
 package com.qaprosoft.carina.core.foundation.commons;
 
-import java.util.UUID;
-
 /**
  * Special keywords used in framework.
  * 
@@ -160,6 +158,9 @@ public class SpecialKeywords {
     public static final String MOBILE_PROXY_PORT = "capabilities.proxyPort";
     
     public static final String  SLOT_CAPABILITIES = "slotCapabilities";
+    
+    public static final String APP_PACKAGE = "appPackage";
+    public static final String BUNDLE_ID = "CFBundleIdentifier";
 
 
     // ------------- STF PROPERTIES ---------------------------------

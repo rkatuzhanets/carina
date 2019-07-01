@@ -20,6 +20,8 @@ import java.net.URL;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openqa.selenium.Capabilities;
+import org.openqa.selenium.Dimension;
+import org.openqa.selenium.Point;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.remote.BrowserType;
 import org.openqa.selenium.remote.DesiredCapabilities;
@@ -40,7 +42,7 @@ import com.qaprosoft.carina.core.foundation.webdriver.core.factory.AbstractFacto
 import com.qaprosoft.carina.core.foundation.webdriver.core.factory.DriverFactory.HubType;
 import com.qaprosoft.carina.core.foundation.webdriver.listener.DesktopRecordingListener;
 import com.qaprosoft.carina.core.foundation.webdriver.listener.EventFiringSeleniumCommandExecutor;
-import com.qaprosoft.carina.core.foundation.webdriver.listener.MoonRecordingListener;
+import com.qaprosoft.carina.core.foundation.webdriver.listener.ZebrunnerRecordingListener;
 
 import io.appium.java_client.ios.IOSStartScreenRecordingOptions.VideoQuality;
 
@@ -73,16 +75,18 @@ public class DesktopFactory extends AbstractFactory {
                 capabilities.setCapability("videoFrameRate", getBitrate(VideoQuality.valueOf(R.CONFIG.get("web_screen_record_quality"))));
             	
                 switch (HubType.valueOf(Configuration.get(Parameter.HUB_MODE).toUpperCase())) {
-				case SELENIUM:
+				case DEFAULT:
 					ce.getListeners().add(new DesktopRecordingListener(initVideoArtifact(videoName)));
 					break;
-				case MOON:
-					ce.getListeners().add(new MoonRecordingListener(initVideoArtifact("%s/" + videoName)));
+				case ZEBRUNNER:
+					ce.getListeners().add(new ZebrunnerRecordingListener(initVideoArtifact("%s/" + videoName)));
 					break;
 				}
             }
             
             driver = new RemoteWebDriver(ce, capabilities);
+            
+            resizeBrowserWindow(driver, capabilities);
         } catch (MalformedURLException e) {
             throw new RuntimeException("Unable to create desktop driver", e);
         }
@@ -98,8 +102,7 @@ public class DesktopFactory extends AbstractFactory {
         if (BrowserType.FIREFOX.equalsIgnoreCase(browser)) {
             return new FirefoxCapabilities().getCapability(name);
         } else if (BrowserType.IEXPLORE.equalsIgnoreCase(browser) || BrowserType.IE.equalsIgnoreCase(browser) || browser.equalsIgnoreCase("ie")) {
-            DesiredCapabilities caps = new IECapabilities().getCapability(name);
-            return caps;
+            return new IECapabilities().getCapability(name);
         } else if (BrowserType.SAFARI.equalsIgnoreCase(browser)) {
             return new SafariCapabilities().getCapability(name);
         } else if (BrowserType.CHROME.equalsIgnoreCase(browser)) {
@@ -107,10 +110,7 @@ public class DesktopFactory extends AbstractFactory {
         } else if (BrowserType.OPERA_BLINK.equalsIgnoreCase(browser) || BrowserType.OPERA.equalsIgnoreCase(browser)) {
             return new OperaCapabilities().getCapability(name);
         } else if (BrowserType.EDGE.toLowerCase().contains(browser.toLowerCase())) {
-            DesiredCapabilities caps = new EdgeCapabilities().getCapability(name);
-            // forcibly override browser name to edge for support 3rd party solutions like browserstack
-            caps.setBrowserName(browser);
-            return caps;
+            return  new EdgeCapabilities().getCapability(name);
         } else {
             throw new RuntimeException("Unsupported browser: " + browser);
         }
@@ -132,7 +132,7 @@ public class DesktopFactory extends AbstractFactory {
 		    String protocol = R.CONFIG.get(vnc_protocol);
 			String host = R.CONFIG.get(vnc_host);
 			String port = R.CONFIG.get(vnc_port); 
-			// If VNC host/port not set user them from Selenim
+			// If VNC host/port not set user them from Selenium
 			if(StringUtils.isEmpty(host) || StringUtils.isEmpty(port)) {
 			    host = ((HttpCommandExecutor) rwd.getCommandExecutor()).getAddressOfRemoteServer().getHost();
 			    port = String.valueOf(((HttpCommandExecutor) rwd.getCommandExecutor()).getAddressOfRemoteServer().getPort());
@@ -171,4 +171,29 @@ public class DesktopFactory extends AbstractFactory {
         }
         return browser_version;
     }
+    
+    /**
+	 * Sets browser window according to capabilites.resolution value, otherwise
+	 * maximizes window.
+	 * 
+	 * @param driver       - instance of desktop @WebDriver
+	 * @param capabilities - driver capabilities
+	 */
+	private void resizeBrowserWindow(WebDriver driver, DesiredCapabilities capabilities) {
+		try {
+			if (capabilities.getCapability("resolution") != null) {
+				String resolution = (String) capabilities.getCapability("resolution");
+				int width = Integer.valueOf(resolution.split("x")[0]);
+				int height = Integer.valueOf(resolution.split("x")[1]);
+				driver.manage().window().setPosition(new Point(0, 0));
+				driver.manage().window().setSize(new Dimension(width, height));
+				LOGGER.info(String.format("Browser window size set to %dx%d", width, height));
+			} else {
+				driver.manage().window().maximize();
+				LOGGER.info("Browser window was maximized");
+			}
+		} catch (Exception e) {
+			LOGGER.error("Unable to resize browser window", e);
+		}
+	}
 }
